@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect, useCallback } from "react";
-import { Table, Button, Form, Input, Radio, Popconfirm } from "antd";
+import { Table, Button, Form, Input, Radio, Popconfirm,Col,Segmented,Row,Tag,Card, } from "antd";
 import CreateOrEditUserModal from "./create-or-edit-user.modal";
 
 const columns = (onEdit, onDelete) => [
@@ -43,6 +43,8 @@ const UserTable = () => {
 
     const [modalVisible, setModalVisible] = useState(false);
     const [editUser, setEditUser] = useState(null);
+    // 视图模式：table / card+
+    const [viewMode, setViewMode] = useState("table");
 
     const fetchData = useCallback(
         async ({ current, pageSize }) => {
@@ -107,17 +109,67 @@ const UserTable = () => {
         setEditUser(null);
         fetchData({ current: 1, pageSize: pagination.pageSize });
     };
+        // --------- Card view helpers & grouping by roles ----------
+const ROLE_OPTIONS = ["admin", "developer", "tester"];
+
+    const getRoleColor = (role) => {
+        switch (role) {
+            case "admin":
+                return "red";
+            case "developer":
+                return "blue";
+            case "tester":
+                return "green";
+            default:
+                return "default";
+        }
+    };
+
+    const getRoleLabel = (role) =>
+        role ? role.charAt(0).toUpperCase() + role.slice(1) : "Unknown";
+
+    // 根据当前 data，按 roles 分组 （你的 user.roles 是 "admin"/"developer"/"tester" 这样的字符串）
+    const groupedByRole = ROLE_OPTIONS.reduce((acc, role) => {
+        acc[role] = [];
+        return acc;
+    }, {});
+
+    data.forEach((user) => {
+        const key = user.roles || "developer"; // 你的数据里是 roles: "admin"/"developer"/"tester"
+        if (!groupedByRole[key]) groupedByRole[key] = [];
+        groupedByRole[key].push(user);
+    });
 
     return (
         <>
-            <Button
-                type="primary"
-                className="mb-4"
-                onClick={() => handleEdit(null)}
+            {/* 顶部：Add User + 视图切换 */}
+            <div
+                style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    marginBottom: 16,
+                }}
             >
-                Add User
-            </Button>
+                <Button
+                    type="primary"
+                    className="mb-4"
+                    onClick={() => handleEdit(null)}
+                >
+                    Add User
+                </Button>
 
+                <Segmented
+                    options={[
+                        { label: "Table", value: "table" },
+                        { label: "Card View", value: "card" },
+                    ]}
+                    value={viewMode}
+                    onChange={setViewMode}
+                />
+            </div>
+
+            {/* 搜索表单 */}
             <Form
                 form={form}
                 layout="inline"
@@ -145,20 +197,156 @@ const UserTable = () => {
                 </Form.Item>
             </Form>
 
-            <Table
-                className="pt-4"
-                columns={columns(handleEdit, handleDelete)}
-                dataSource={data}
-                loading={loading}
-                pagination={{
-                    current: pagination.current,
-                    pageSize: pagination.pageSize,
-                    total: pagination.total,
-                    showSizeChanger: true,
-                }}
-                onChange={handleTableChange}
-                rowKey="id"
-            />
+            {/* 表格 / 卡片视图 */}
+            {viewMode === "table" ? (
+                <Table
+                    className="pt-4"
+                    columns={columns(handleEdit, handleDelete)}
+                    dataSource={data}
+                    loading={loading}
+                    pagination={{
+                        current: pagination.current,
+                        pageSize: pagination.pageSize,
+                        total: pagination.total,
+                        showSizeChanger: true,
+                    }}
+                    onChange={handleTableChange}
+                    rowKey="id"
+                />
+            ) : (
+                <div className="pt-4">
+                    <Row gutter={[16, 16]}>
+                        {ROLE_OPTIONS.map((role) => {
+                            const users = groupedByRole[role] || [];
+                            return (
+                                <Col xs={24} sm={12} md={8} lg={6} key={role}>
+                                    <Card
+                                        size="small"
+                                        style={{ height: "100%" }}
+                                        title={
+                                            <div
+                                                style={{
+                                                    display: "flex",
+                                                    justifyContent: "space-between",
+                                                }}
+                                            >
+                                                <span>{getRoleLabel(role)}</span>
+                                                <Tag color={getRoleColor(role)}>
+                                                    {users.length}
+                                                </Tag>
+                                            </div>
+                                        }
+                                    >
+                                        {users.length === 0 ? (
+                                            <div
+                                                style={{
+                                                    color: "#999",
+                                                    fontSize: 12,
+                                                }}
+                                            >
+                                                No users
+                                            </div>
+                                        ) : (
+                                            users.map((u) => (
+                                                <Card
+                                                    key={u.id}
+                                                    size="small"
+                                                    hoverable
+                                                    style={{ marginBottom: 8 }}
+                                                >
+                                                    <div
+                                                        style={{
+                                                            fontWeight: "bold",
+                                                            marginBottom: 4,
+                                                            display: "flex",
+                                                            justifyContent: "space-between",
+                                                            gap: 8,
+                                                        }}
+                                                    >
+                                                        <span style={{ flex: 1 }}>
+                                                            {u.displayName ||
+                                                                u.username ||
+                                                                "Unknown"}
+                                                        </span>
+                                                    </div>
+
+                                                    <div
+                                                        style={{
+                                                            marginBottom: 8,
+                                                            fontSize: 12,
+                                                            lineHeight: 1.6,
+                                                        }}
+                                                    >
+                                                        <div>
+                                                            <strong>Username: </strong>
+                                                            {u.username}
+                                                        </div>
+                                                        {u.email && (
+                                                            <div>
+                                                                <strong>Email: </strong>
+                                                                {u.email}
+                                                            </div>
+                                                        )}
+                                                    </div>
+
+                                                    <div
+                                                        style={{
+                                                            display: "flex",
+                                                            justifyContent: "space-between",
+                                                            alignItems: "center",
+                                                            fontSize: 12,
+                                                        }}
+                                                    >
+                                                        <span>
+                                                            Role:{" "}
+                                                            <Tag
+                                                                color={getRoleColor(
+                                                                    u.roles
+                                                                )}
+                                                            >
+                                                                {getRoleLabel(u.roles)}
+                                                            </Tag>
+                                                        </span>
+
+                                                        <span>
+                                                            <Button
+                                                                type="link"
+                                                                size="small"
+                                                                onClick={() =>
+                                                                    handleEdit(u)
+                                                                }
+                                                            >
+                                                                Edit
+                                                            </Button>
+                                                            <Popconfirm
+                                                                title="Delete the user"
+                                                                description="Are you sure to delete this user?"
+                                                                onConfirm={() =>
+                                                                    handleDelete(u)
+                                                                }
+                                                                okText="Yes"
+                                                                cancelText="No"
+                                                            >
+                                                                <Button
+                                                                    danger
+                                                                    type="link"
+                                                                    size="small"
+                                                                >
+                                                                    Delete
+                                                                </Button>
+                                                            </Popconfirm>
+                                                        </span>
+                                                    </div>
+                                                </Card>
+                                            ))
+                                        )}
+                                    </Card>
+                                </Col>
+                            );
+                        })}
+                    </Row>
+                </div>
+            )}
 
             <CreateOrEditUserModal
                 visible={modalVisible}

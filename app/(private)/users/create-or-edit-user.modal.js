@@ -1,6 +1,6 @@
 "use client";
 import React, { useEffect } from "react";
-import { Modal, Form, Input, Radio } from "antd";
+import { Modal, Form, Input, Radio, } from "antd";
 
 const EditUserModal = ({ visible, onCancel, onOk, user }) => {
     const [form] = Form.useForm();

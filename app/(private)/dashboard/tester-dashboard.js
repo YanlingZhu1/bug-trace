@@ -15,6 +15,9 @@ import {
     Select,
     Form,
     Popconfirm,
+    Col,
+    Row,
+    Segmented,
 } from "antd";
 import {
     MessageOutlined,
@@ -45,7 +48,8 @@ export default function TesterDashboard() {
     const [loading, setLoading] = useState(false);
 
     const [devOptions, setDevOptions] = useState([]);
-
+    // view mode: "table" or "card"+
+    const [viewMode, setViewMode] = useState("table");
     // Create Bug
     const [openCreate, setOpenCreate] = useState(false);
     const [createSubmitting, setCreateSubmitting] = useState(false);
@@ -298,7 +302,40 @@ export default function TesterDashboard() {
             setCreateSubmitting(false);
         }
     };
+    // -----------------------------------------------------
+    // Card view helpers & grouping
+    // -----------------------------------------------------
+    const getStatusColor = (status) => {
+        switch (status) {
+            case "open":
+                return "default";
+            case "assigned":
+                return "purple";
+            case "in_progress":
+                return "blue";
+            case "resolved":
+                return "green";
+            case "rejected":
+                return "red";
+            case "closed":
+                return "gray";
+            default:
+                return "default";
+        }
+    };
 
+    const getStatusLabel = (status) => status.replace("_", " ");
+
+    const groupedByStatus = STATUS_OPTIONS.reduce((acc, status) => {
+        acc[status] = [];
+        return acc;
+    }, {});
+
+    list.forEach((bug) => {
+        const key = bug.status || "open";
+        if (!groupedByStatus[key]) groupedByStatus[key] = [];
+        groupedByStatus[key].push(bug);
+    });
     // -----------------------------------------------------
     // Columns
     // -----------------------------------------------------
@@ -346,22 +383,145 @@ export default function TesterDashboard() {
     // -----------------------------------------------------
     // UI Render
     // -----------------------------------------------------
-    return (
+     return (
         <div style={{ padding: 24 }}>
-            <Button
-                type="primary"
-                onClick={() => setOpenCreate(true)}
-                style={{ marginBottom: 12 }}
+            {/* 顶部：新建按钮 + 视图切换 */}
+            <div
+                style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    marginBottom: 12,
+                }}
             >
-                New Bug
-            </Button>
+                <Button
+                    type="primary"
+                    onClick={() => setOpenCreate(true)}
+                >
+                    New Bug
+                </Button>
 
-            <Table
-                rowKey="id"
-                loading={loading}
-                columns={columns}
-                dataSource={list}
-            />
+                <Segmented
+                    options={[
+                        { label: "Table", value: "table" },
+                        { label: "Card View", value: "card" },
+                    ]}
+                    value={viewMode}
+                    onChange={setViewMode}
+                />
+            </div>
+
+            {viewMode === "table" ? (
+                <Table
+                    rowKey="id"
+                    loading={loading}
+                    columns={columns}
+                    dataSource={list}
+                />
+            ) : (
+                // 卡片式看板视图
+                <Row gutter={[16, 16]}>
+                    {STATUS_OPTIONS.map((status) => {
+                        const bugs = groupedByStatus[status] || [];
+                        return (
+                            <Col xs={24} sm={12} md={8} lg={4} key={status}>
+                                <Card
+                                    size="small"
+                                    style={{ height: "100%" }}
+                                    title={
+                                        <div
+                                            style={{
+                                                display: "flex",
+                                                justifyContent: "space-between",
+                                            }}
+                                        >
+                                            <span>{getStatusLabel(status)}</span>
+                                            <Tag color={getStatusColor(status)}>
+                                                {bugs.length}
+                                            </Tag>
+                                        </div>
+                                    }
+                                >
+                                    {bugs.length === 0 ? (
+                                        <div
+                                            style={{
+                                                color: "#999",
+                                                fontSize: 12,
+                                            }}
+                                        >
+                                            No bugs
+                                        </div>
+                                    ) : (
+                                        bugs.map((bug) => (
+                                            <Card
+                                                key={bug.id}
+                                                size="small"
+                                                hoverable
+                                                style={{ marginBottom: 8 }}
+                                                onClick={() => openDetail(bug)}
+                                            >
+                                                <div
+                                                    style={{
+                                                        fontWeight: "bold",
+                                                        marginBottom: 4,
+                                                        display: "flex",
+                                                        justifyContent:
+                                                            "space-between",
+                                                        gap: 8,
+                                                    }}
+                                                >
+                                                    <span style={{ flex: 1 }}>
+                                                        {bug.title}
+                                                    </span>
+                                                </div>
+
+                                                <div style={{ marginBottom: 4 }}>
+                                                    <Tag color="orange">
+                                                        {bug.priority}
+                                                    </Tag>
+                                                    <Tag color="red">
+                                                        {bug.severity}
+                                                    </Tag>
+                                                </div>
+
+                                                <div
+                                                    style={{
+                                                        display: "flex",
+                                                        justifyContent:
+                                                            "space-between",
+                                                        alignItems: "center",
+                                                        fontSize: 12,
+                                                        color: "#999",
+                                                    }}
+                                                >
+                                                    <span>
+                                                        {bug.assignee
+                                                            ? bug.assignee
+                                                                  .displayName ||
+                                                              bug.assignee
+                                                                  .username
+                                                            : "Unassigned"}
+                                                    </span>
+                                                    <Button
+                                                        type="link"
+                                                        size="small"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            openDetail(bug);
+                                                        }}
+                                                    >
+                                                        Details
+                                                    </Button>
+                                                </div>
+                                            </Card>
+                                        ))
+                                    )}
+                                </Card>
+                            </Col>
+                        );
+                    })}
+                </Row>
+            )}
 
             {/* Create Bug Modal */}
             <Modal
@@ -454,6 +614,14 @@ export default function TesterDashboard() {
                                     Severity: {selectedBug.severity}
                                 </Tag>
                             </div>
+                            <div style={{ marginTop: 8 }}>
+                                <Button
+                                    type="link"
+                                    onClick={() => openHistory(selectedBug.id)}
+                                >
+                                    View History
+                                </Button>
+                            </div>
                         </Card>
 
                         <Divider>Comments ({comments.length})</Divider>
@@ -533,7 +701,7 @@ export default function TesterDashboard() {
                                                     }}
                                                 >
                                                     {comment.user
-                                                            ?.displayName ||
+                                                        ?.displayName ||
                                                         comment.user?.username ||
                                                         "Unknown"}
                                                 </span>
@@ -545,10 +713,10 @@ export default function TesterDashboard() {
                                                                 .role === "admin"
                                                                 ? "red"
                                                                 : comment.user
-                                                                    .role ===
-                                                                "developer"
-                                                                    ? "blue"
-                                                                    : "green"
+                                                                      .role ===
+                                                                  "developer"
+                                                                ? "blue"
+                                                                : "green"
                                                         }
                                                     >
                                                         {comment.user.role}
